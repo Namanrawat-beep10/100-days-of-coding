@@ -1,6 +1,8 @@
 import os
 import re
 import subprocess
+import time
+import random
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -76,7 +78,6 @@ Do not use Markdown code fences.
 Do not provide an explanation outside the C program.
 
 Requirements:
-
 - Put the exact assignment below at the top in a C block comment.
 - Use standard C11.
 - Keep the solution beginner-friendly and readable.
@@ -89,37 +90,60 @@ Requirements:
 ASSIGNMENT:
 
 {question}
-"""
+"""max_attempts = 6
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print(
+                f"Calling Gemini for Q{q} "
+                f"(attempt {attempt}/{max_attempts})..."
+            )
 
-    response = client.models.generate_content(
-        model=os.getenv(
-            "GEMINI_MODEL",
-            "gemini-2.5-flash"
-        ),
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.1
-        ),
-    )
+            response = client.models.generate_content(
+                model=os.getenv(
+                    "GEMINI_MODEL",
+                    "gemini-3.5-flash"
+                ),
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.1
+                ),
+            )
 
-    code = (response.text or "").strip()
+            code = (response.text or "").strip()
 
-    # Remove Markdown fences if Gemini adds them anyway.
-    code = re.sub(
-        r"^```(?:c)?\s*|\s*```$",
-        "",
-        code,
-        flags=re.S | re.I
-    ).strip()
+            code = re.sub(
+                r"^```(?:c)?\s*|\s*```$",
+                "",
+                code,
+                flags=re.S | re.I
+            ).strip()
 
-    code += "\n"
+            code += "\n"
 
-    if "#include" not in code or "main" not in code:
-        raise RuntimeError(
-            f"Gemini returned invalid C code for Q{q}"
-        )
+            if "#include" not in code or "main" not in code:
+                raise RuntimeError(
+                    f"Gemini returned invalid C code for Q{q}"
+                )
 
-    return code
+            return code
+
+        except Exception as error:
+            print(
+                f"Gemini attempt {attempt} failed: {error}"
+            )
+
+            if attempt == max_attempts:
+                raise
+
+            # Increasing delay between attempts.
+            wait = (2 ** attempt) + random.randint(1, 5)
+
+            print(
+                f"Temporary Gemini failure. "
+                f"Retrying in {wait} seconds..."
+            )
+
+            time.sleep(wait)
 
 
 def compile_file(path):
